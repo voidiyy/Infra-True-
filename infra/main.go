@@ -1,9 +1,7 @@
 package main
 
 import (
-	"Infra/internal/dockr"
 	"Infra/internal/dockr/service"
-	"log"
 )
 
 var configs = []*service.SrvConfig{
@@ -18,11 +16,4 @@ func main() {
 	// Initialize services
 	services := service.InitServices(configs...)
 
-	dck, err := dockr.NewDockr(services)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	dck.ListContainers()
 }

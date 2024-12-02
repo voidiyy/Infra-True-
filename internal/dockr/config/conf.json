@@ -1,0 +1,30 @@
+[
+  {
+    "is_default": true,
+    "container_type": "DB",
+    "image": "postgres:latest",
+    "container_name": "db_container",
+    "network": "db-net",
+    "ports": ["5432:5432"],
+    "volumes": ["/data/db:/var/lib/postgresql/data"],
+    "env_vars": {
+      "POSTGRES_USER": "admin",
+      "POSTGRES_PASSWORD": "password",
+      "POSTGRES_DB": "mydb"
+    },
+    "restart_policy": "always"
+  },
+  {
+    "is_default": true,
+    "container_type": "Cache",
+    "image": "redis:latest",
+    "container_name": "cache_container",
+    "network": "cache-net",
+    "ports": ["6379:6379"],
+    "volumes": ["/data/cache:/data"],
+    "env_vars": {
+      "REDIS_PASSWORD": "secret"
+    },
+    "restart_policy": "always"
+  }
+]
