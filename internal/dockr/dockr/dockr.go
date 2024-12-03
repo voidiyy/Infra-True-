@@ -5,6 +5,7 @@ import (
 	entity "Infra/internal/dockr/container"
 	"context"
 	"fmt"
+
 	"github.com/docker/docker/client"
 	"go.uber.org/zap"
 )
@@ -37,11 +38,7 @@ func NewDockr(ctx context.Context, ultimateConfig *config.UltimateConfig, logger
 }
 
 func (d *Dockr) InitContainers() {
-	for containerType, containerConfigs := range d.config.Containers {
-		for _, containerConfig := range containerConfigs {
-			d.containers
-		}
-	}
+	
 }
 
 // Close closes the docker client session

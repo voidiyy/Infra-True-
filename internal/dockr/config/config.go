@@ -1,158 +1,154 @@
 package config
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"strings"
-	"sync"
+	"time"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/strslice"
+	"github.com/docker/go-connections/nat"
 )
 
-var mu *sync.Mutex
-
-// ContainerConfig is a representation of docker container config
-// it UNI for all services
+// ContainerConfig represents the full configuration for a Docker container.
+// It is unified for all services.
 type ContainerConfig struct {
-	// config
-	IsDefault     bool   `yaml:"is_default" json:"is_default"`
-	ContainerType string `yaml:"container_type" json:"container_type"`
+	// If IsDefault == true, configuration will be created with default values.
+	LoadLevel int `yaml:"load_level" json:"load_level"`
+	IsDefault     bool   `yaml:"is_default" json:"is_default"`  // Indicates whether to use default values for this configuration.
+	ContainerService string `yaml:"container_service" json:"container_service"` // Type of the container (e.g., "web", "db", etc.).
 
-	//docker config
-	Image         string            `yaml:"image" json:"image"`
-	ContainerName string            `yaml:"container_name" json:"container_name"`
-	Network       string            `yaml:"network" json:"network"`
-	Ports         []string          `yaml:"ports" json:"ports"`
-	Volumes       []string          `yaml:"volumes" json:"volumes"`
-	EnvVars       map[string]string `yaml:"env_vars" json:"env_vars"`
-	RestartPolicy string            `yaml:"restart_policy" json:"restart_policy"`
+	// Docker &container.Config{}
+	Image         string            `yaml:"image" json:"image"`         // The image to use for the container.
+	Hostname     string            `yaml:"hostname" json:"hostname"` // The hostname to use for the container.
+	EnvVars       map[string]string `yaml:"env_vars" json:"env_vars"`   // Environment variables to set in the container.
+	WorkingDir    string            `yaml:"working_dir" json:"working_dir"` // The working directory for commands to run in.
+	Cmd []string `yaml:"cmd" json:"cmd"` // Command to run in the container on startup.
+	
+	// Docker &container.HostConfig{}
+	Volumes       []string          `yaml:"volumes" json:"volumes"`     // List of volumes to mount into the container.
+	NetworkMode   string            `yaml:"network_mode" json:"network_mode"` // The network mode for the container.
+	Ports         []string          `yaml:"ports" json:"ports"`         // List of ports to expose from the container.
+	RestartPolicy string            `yaml:"restart_policy" json:"restart_policy"` // Docker restart policy (e.g., "always", "on-failure").
+	
+	// Docker &network.NetworkingConfig{}
+	NetworkID       string            `yaml:"network" json:"network"`     // The name of the network for the container.
+
+	// HealthCheck configuration for Docker health check (ping of server every 5 minutes, or similar).
+	HealthCheck HealthCheckConfig `yaml:"health_check" json:"health_check"`
 }
 
-func (c *ContainerConfig) Validate() error {
-	// Check for required fields
-	if c.ContainerType == "" {
-		return errors.New("container type is required")
-	}
+func (c *ContainerConfig) GetNetworkID() string {
+	return c.NetworkID
+}
 
-	if c.Image == "" {
-		return errors.New("image is required")
-	}
-
-	if c.ContainerName == "" {
-		return errors.New("container name is required")
-	}
-
-	if c.Network == "" {
-		return errors.New("network is required")
-	}
-
-	// Validate Ports
-	for _, portMapping := range c.Ports {
-		if err := validatePortMapping(portMapping); err != nil {
-			return fmt.Errorf("invalid port mapping '%s': %v", portMapping, err)
+func (c *ContainerConfig) GetRestartPolicy() container.RestartPolicy {
+	switch c.RestartPolicy {
+		case "no": return container.RestartPolicy{
+			Name: container.RestartPolicyDisabled,
+		}
+		case "always": return container.RestartPolicy{
+			Name: container.RestartPolicyAlways,
+		}
+		case "on-failure": return container.RestartPolicy{
+			Name: container.RestartPolicyOnFailure,
+		}
+		case "unless-stopped": return container.RestartPolicy{
+			Name: container.RestartPolicyUnlessStopped,
 		}
 	}
-
-	// Validate Volumes
-	for _, volume := range c.Volumes {
-		if !strings.Contains(volume, ":") {
-			return fmt.Errorf("invalid volume format '%s', must be 'source:target'", volume)
-		}
+	return container.RestartPolicy{
+		Name: container.RestartPolicyAlways,
 	}
-
-	// Restart policy validation
-	validPolicies := map[string]bool{
-		"always":     true,
-		"on-failure": true,
-		"no":         true,
-	}
-	if _, ok := validPolicies[c.RestartPolicy]; !ok {
-		return fmt.Errorf("invalid restart policy '%s'", c.RestartPolicy)
-	}
-
-	return nil
-}
-
-func (c *ContainerConfig) GetDefault() bool {
-	mu.Lock()
-	defer mu.Unlock()
-	return c.IsDefault
-}
-
-func (c *ContainerConfig) GetType() string {
-	mu.Lock()
-	defer mu.Unlock()
-	return c.ContainerType
-}
-
-func (c *ContainerConfig) GetImage() string {
-	mu.Lock()
-	defer mu.Unlock()
-	return c.Image
-}
-
-func (c *ContainerConfig) GetContainerName() string {
-	mu.Lock()
-	defer mu.Unlock()
-	return c.ContainerName
-}
-
-func (c *ContainerConfig) GetNetwork() string {
-	mu.Lock()
-	defer mu.Unlock()
-	return c.Network
-}
-
-func (c *ContainerConfig) GetPorts() []string {
-	mu.Lock()
-	defer mu.Unlock()
-	return c.Ports
 }
 
 func (c *ContainerConfig) GetVolumes() []string {
-	mu.Lock()
-	defer mu.Unlock()
 	return c.Volumes
 }
 
+func (c *ContainerConfig) GetCMD() strslice.StrSlice{
+	return strslice.StrSlice(c.Cmd)
+}
+
+func (c *ContainerConfig) GetWorkingDir() string {
+	return c.WorkingDir
+}
+
+func (c *ContainerConfig) GetHostname() string {
+	return c.Hostname
+}
+
+func (c *ContainerConfig) GetDefault() bool {
+	return c.IsDefault
+}
+
+func (c *ContainerConfig) GetService() string {
+	return c.ContainerService
+}
+
+func (c *ContainerConfig) GetImage() string {
+	return c.Image
+}
+
 func (c *ContainerConfig) GetEnvVars() []string {
-	env := make([]string, 0)
+	env := make([]string, len(c.EnvVars))
 	for key, value := range c.EnvVars {
 		env = append(env, fmt.Sprintf("%s=%s", key, value))
 	}
-	mu.Lock()
-	defer mu.Unlock()
 	return env
 }
 
-func (c *ContainerConfig) GetRestartPolicy() string {
-	mu.Lock()
-	defer mu.Unlock()
-	return c.RestartPolicy
+
+func (c *ContainerConfig) GetPorts() nat.PortMap {
+	portBind := make(nat.PortMap)
+	for _, portMapping := range c.Ports {
+		parts := strings.Split(portMapping, ":")
+		if len(parts) == 2 {
+			hostPort := parts[0]
+			containerPort := fmt.Sprintf("%s/tcp", parts[1])
+			portBind[nat.Port(containerPort)] = []nat.PortBinding{
+				{HostPort: hostPort},
+				{HostIP: "0.0.0.0"},
+			}
+		}
+	}
+	return portBind
 }
 
-// validatePortMapping checks if a port mapping string is valid (e.g., "80:80").
-func validatePortMapping(mapping string) error {
-	parts := strings.Split(mapping, ":")
-	if len(parts) != 2 {
-		return errors.New("must have format 'hostPort:containerPort'")
-	}
-
-	hostPort, containerPort := parts[0], parts[1]
-	if err := validatePort(hostPort); err != nil {
-		return fmt.Errorf("invalid host port '%s': %v", hostPort, err)
-	}
-	if err := validatePort(containerPort); err != nil {
-		return fmt.Errorf("invalid container port '%s': %v", containerPort, err)
-	}
-
-	return nil
+func (c *ContainerConfig) GetNetworkMode() container.NetworkMode {
+	return container.NetworkMode(c.NetworkMode)
 }
 
-// validatePort checks if a port is a valid numeric value within the allowed range.
-func validatePort(port string) error {
-	p, err := net.LookupPort("tcp", port)
-	if err != nil || p < 1 || p > 65535 {
-		return errors.New("must be a number between 1 and 65535")
-	}
-	return nil
+// HealthCheckConfig defines the configuration for Docker container health checks.
+type HealthCheckConfig struct {
+	// Test command to perform health check.
+	Test        []string `yaml:"test" json:"test"` // Command for checking health.
+	Interval    string   `yaml:"interval" json:"interval"` // Time between checks (e.g., "30s").
+	Timeout     string   `yaml:"timeout" json:"timeout"` // Timeout for health check (e.g., "5s").
+	Retries     int      `yaml:"retries" json:"retries"` // Number of retries before considering the container unhealthy.
+	StartPeriod string   `yaml:"start_period" json:"start_period"` // Initial delay before the first health check (e.g., "10s").
 }
+
+func (c *ContainerConfig) GetHealthTest() []string {
+	return c.HealthCheck.Test
+}
+
+func (c *ContainerConfig) GetHealthInterval() time.Duration {
+	inerv, _ := time.ParseDuration(c.HealthCheck.Interval)
+	return inerv
+}
+
+func (c *ContainerConfig) GetHealthTimeout() time.Duration {
+	timeout, _ := time.ParseDuration(c.HealthCheck.Timeout)
+	return timeout
+}
+
+func (c *ContainerConfig) GetHealthRetries() int {
+	return c.HealthCheck.Retries
+}
+
+func (c *ContainerConfig) GetHealthStartPeriod() time.Duration {
+	strat, _ := time.ParseDuration(c.HealthCheck.StartPeriod)
+	return strat
+}
+

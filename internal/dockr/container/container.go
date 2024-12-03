@@ -2,12 +2,10 @@ package entity
 
 import (
 	"Infra/internal/dockr/config"
-	"fmt"
+	"sync"
+
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/go-connections/nat"
-	"strings"
-	"sync"
 )
 
 type ContainerStatus string
@@ -20,57 +18,76 @@ func ContainerStatusStopped() ContainerStatus { return "stopped" }
 // Container is a representation of running docker container (service.Service + Docker API)
 type Container struct {
 	ID              string
+	Service 				string
+	Status          ContainerStatus
+
 	ContainerConfig *config.ContainerConfig
 	Config          *container.Config
+	
 	HostConfig      *container.HostConfig
 	NetworkConfig   *network.NetworkingConfig
-	Status          ContainerStatus
+	HealthCheckConfig *container.HealthConfig
 
 	mu *sync.RWMutex
 }
 
-func NewContainer(config *config.ContainerConfig) (*Container, error) {
+func NewContainer(conf *config.ContainerConfig) (*Container, error) {
+
+	var res = container.Resources{}
+
+	switch conf.LoadLevel {
+		case 0: res = config.LowLoadConfig
+		case 1: res = config.MediumLoadConfig
+		case 2: res = config.HighLoadConfig
+		default:
+		res = config.MediumLoadConfig
+	}
 
 	containerConfig := &container.Config{
-		Image: config.GetImage(),
-		Env:   config.GetEnvVars(),
+		Image: conf.GetImage(),
+		Env:   conf.GetEnvVars(),
+		Hostname: conf.GetHostname(),
+		WorkingDir: conf.GetWorkingDir(),
+		Cmd: conf.GetCMD(),
 	}
 
 	hostConfig := &container.HostConfig{
-		PortBindings: parsePortBindings(config.GetPorts()),
-		Binds:        config.GetVolumes(),
-		RestartPolicy: container.RestartPolicy{
-			Name: container.RestartPolicyAlways,
-		},
+		Binds: conf.GetVolumes(),
+		NetworkMode: conf.GetNetworkMode(),
+		PortBindings: conf.GetPorts(),
+		RestartPolicy: conf.GetRestartPolicy(),
+		Resources: res,
 	}
-
-	networkConfig := &network.NetworkingConfig{}
+	
+	healthCheckConfig := &container.HealthConfig{
+			Test:        conf.GetHealthTest(),       // Health check command
+			Interval:    conf.GetHealthInterval(),   // Health check interval
+			Timeout:     conf.GetHealthTimeout(),    // Health check timeout
+			Retries:     conf.GetHealthRetries(),    // Number of retries before marking unhealthy
+			StartPeriod: conf.GetHealthStartPeriod(), // Initial delay before starting health checks
+	}
+	networkConfig := &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				conf.GetNetworkID(): {
+					NetworkID: conf.GetNetworkID(),
+					Aliases:   []string{conf.GetHostname()},
+				},
+			},
+	}
 
 	return &Container{
 		ID:              "",
-		ContainerConfig: config,
+		ContainerConfig: conf,
 		Config:          containerConfig,
 		HostConfig:      hostConfig,
 		NetworkConfig:   networkConfig,
+		HealthCheckConfig: healthCheckConfig,
 		Status:          ContainerStatusCreated(),
 		mu:              &sync.RWMutex{},
 	}, nil
 }
 
-func parsePortBindings(ports []string) nat.PortMap {
-	portBindings := make(nat.PortMap)
-	for _, mapping := range ports {
-		parts := strings.Split(mapping, ":")
-		if len(parts) == 2 {
-			hostPort := parts[0]
-			containerPort := fmt.Sprintf("%s/tcp", parts[1])
-			portBindings[nat.Port(containerPort)] = []nat.PortBinding{
-				{HostPort: hostPort},
-			}
-		}
-	}
-	return portBindings
-}
+//--------------------------------------
 
 func (c *Container) StatusStart() {
 	c.Status = ContainerStatusRunning()
@@ -86,8 +103,36 @@ func (c *Container) GetID() string {
 	return c.ID
 }
 
+func (c *Container) GetService() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Service
+}
+
+//--------------------------------------
+
 func (c *Container) GetContainerConfig() *config.ContainerConfig {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.ContainerConfig
 }
+
+func (c *Container) GetConfig() *container.Config {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Config
+}
+
+func (c *Container) GetHostConfig() *container.HostConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.HostConfig
+}
+
+func (c *Container) GetNetworkConfig() *network.NetworkingConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.NetworkConfig
+}
+
+//--------------------------------------

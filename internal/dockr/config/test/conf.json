@@ -1,0 +1,50 @@
+[
+  {
+    "load_level": 1,
+    "is_default": true,
+    "container_service": "lb",
+    "image": "nginx:latest",
+    "hostname": "web-service",
+    "env_vars": {
+      "ENV": "production"
+    },
+    "working_dir": "/var/www",
+    "cmd": ["nginx", "-g", "daemon off;"],
+    "volumes": ["/host/web:/var/www"],
+    "network_mode": "bridge",
+    "ports": ["80:80"],
+    "restart_policy": "always",
+    "network": "web-network",
+    "health_check": {
+      "interval": "30s",
+      "timeout": "5s",
+      "retries": 3,
+      "test_command": ["CMD", "curl", "-f", "http://localhost"]
+    }
+  },
+  {
+    "load_level": 2,
+    "is_default": false,
+    "container_service": "db",
+    "image": "postgres:latest",
+    "hostname": "db-service",
+    "env_vars": {
+      "POSTGRES_USER": "admin",
+      "POSTGRES_PASSWORD": "password",
+      "POSTGRES_DB": "mydb"
+    },
+    "working_dir": "/var/lib/postgresql/data",
+    "cmd": ["postgres"],
+    "volumes": ["/host/db:/var/lib/postgresql/data"],
+    "network_mode": "bridge",
+    "ports": ["5432:5432"],
+    "restart_policy": "on-failure",
+    "network": "db-network",
+    "health_check": {
+      "interval": "1m",
+      "timeout": "10s",
+      "retries": 5,
+      "test_command": ["CMD-SHELL", "pg_isready -U admin"]
+    }
+  }
+]

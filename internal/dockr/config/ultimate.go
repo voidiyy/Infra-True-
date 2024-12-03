@@ -3,9 +3,11 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/yaml.v3"
+	"log"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 type UltimateConfig struct {
@@ -24,14 +26,11 @@ func NewContainersConfig(configs ...ContainerConfig) (*UltimateConfig, error) {
 	ult := &UltimateConfig{
 		Containers: make(map[string][]*ContainerConfig, len(configs)),
 	}
-	for i, config := range configs {
-		if err := config.Validate(); err != nil {
-			return nil, fmt.Errorf("config #%d is invalid: %w", i, err)
-		}
-
-		ult.Containers[config.ContainerType] = append(ult.Containers[config.ContainerType], &config)
+	for _, config := range configs {
+				ult.Containers[config.ContainerService] = append(ult.Containers[config.ContainerService], &config)
 	}
 
+	log.Printf("loaded %v configs\n", len(ult.Containers))
 	return ult, nil
 }
 
@@ -66,11 +65,11 @@ func LoadContainersConfig(path string) (*UltimateConfig, error) {
 
 	ulti := make(map[string][]*ContainerConfig, len(conf))
 	for _, c := range conf {
-		if err = c.Validate(); err != nil {
-			return nil, fmt.Errorf("config is invalid: %w", err)
-		}
-		ulti[c.ContainerType] = append(ulti[c.ContainerType], c)
+	
+		ulti[c.ContainerService] = append(ulti[c.ContainerService], c)
 	}
 
+	log.Printf("loaded %v configs\n", len(ulti))
+	
 	return &UltimateConfig{Containers: ulti}, nil
 }
