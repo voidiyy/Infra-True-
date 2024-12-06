@@ -10,6 +10,32 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
+var _ ContainerConfiguration = &ContainerConfig{}
+
+type ContainerConfiguration interface {
+	GetNetworkID() string
+	GetRestartPolicy() container.RestartPolicy
+	GetVolumes() []string
+	GetCMD() strslice.StrSlice
+	GetWorkingDir() string
+	GetHostname() string
+	GetDefault() bool
+	GetService() string
+	GetPorts() nat.PortMap
+	GetEnvVars() []string
+	GetImage() string
+	GetNetworkMode() container.NetworkMode
+	GetLoadLevel() int 
+	
+	GetFull() *ContainerConfig 
+	
+	GetHealthTest() []string
+	GetHealthInterval() time.Duration
+	GetHealthTimeout() time.Duration
+	GetHealthRetries() int
+	GetHealthStartPeriod() time.Duration
+}
+
 // ContainerConfig represents the full configuration for a Docker container.
 // It is unified for all services.
 type ContainerConfig struct {
@@ -36,6 +62,14 @@ type ContainerConfig struct {
 
 	// HealthCheck configuration for Docker health check (ping of server every 5 minutes, or similar).
 	HealthCheck HealthCheckConfig `yaml:"health_check" json:"health_check"`
+}
+
+func (c *ContainerConfig) GetLoadLevel() int {
+	return c.LoadLevel
+}
+
+func (c *ContainerConfig) GetFull() *ContainerConfig {
+	return c
 }
 
 func (c *ContainerConfig) GetNetworkID() string {
@@ -128,6 +162,8 @@ type HealthCheckConfig struct {
 	Retries     int      `yaml:"retries" json:"retries"` // Number of retries before considering the container unhealthy.
 	StartPeriod string   `yaml:"start_period" json:"start_period"` // Initial delay before the first health check (e.g., "10s").
 }
+
+//------------------- HEALTH CHECK ------------------------
 
 func (c *ContainerConfig) GetHealthTest() []string {
 	return c.HealthCheck.Test

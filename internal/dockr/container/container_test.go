@@ -1,8 +1,10 @@
 package entity_test
 
 import (
-	"testing"
 	"Infra/internal/dockr/config"
+	entity "Infra/internal/dockr/container"
+	"fmt"
+	"testing"
 )
 
 func TestContainer(t *testing.T) {
@@ -60,9 +62,18 @@ func TestContainer(t *testing.T) {
 
 	
 	
-	t.Run("", func(t *testing.T) {
+	t.Run("Ultimate", func(t *testing.T) {
 		
+		ultiConfig, err := config.NewContainersConfig(configs...)
+		if err != nil {
+			t.Error(err)
+		}
 		
+		ultiContainer, err := entity.NewUltimateContainer(ultiConfig)
+		if err != nil {
+			t.Error(err)
+		}
 		
+		fmt.Println("created containers: ", len(ultiContainer.Containers))
 	}) 
 }

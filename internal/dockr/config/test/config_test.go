@@ -28,8 +28,8 @@ func TestConfig(t *testing.T) {
 		db := ulti.Containers["db"]
 		lb := ulti.Containers["lb"]
 		
-		fmt.Println(db[0])
-		fmt.Println(lb[0])
+		fmt.Println(db)
+		fmt.Println(lb)
 	})
 	
 	t.Run(".yaml", func(t *testing.T){
@@ -45,8 +45,8 @@ func TestConfig(t *testing.T) {
 		db := ulti.Containers["db"]
 		lb := ulti.Containers["lb"]
 		
-		fmt.Println(db[0])
-		fmt.Println(lb[0])
+		fmt.Println(db)
+		fmt.Println(lb)
 	})
 	
 	t.Run(".yml", func(t *testing.T){
@@ -62,8 +62,8 @@ func TestConfig(t *testing.T) {
 		db := ulti.Containers["db"]
 		lb := ulti.Containers["lb"]
 		
-		fmt.Println(db[0])
-		fmt.Println(lb[0])
+		fmt.Println(db)
+		fmt.Println(lb)
 	})
 	
 	t.Run("slice", func(t *testing.T){
@@ -79,12 +79,10 @@ func TestConfig(t *testing.T) {
 		db := ulti.Containers["db"]
 		lb := ulti.Containers["lb"]
 		
-		fmt.Println(db[0])
-		fmt.Println(lb[0])
+		fmt.Println(db)
+		fmt.Println(lb)
 	})
 }
-
-
 
 var configs = []config.ContainerConfig{
 		{

@@ -1,37 +1,12 @@
 package config
 
 import (
-	"math/rand"
+	"crypto/rand"
 
 	"github.com/docker/docker/api/types/container"
 )
 
-func DefaultConfigDB() ContainerConfig {
-	return defaultConfigs()["DB"]
-}
-
-func DefaultConfigCache() ContainerConfig {
-	return defaultConfigs()["Cache"]
-}
-
-func DefaultConfigServerMain() ContainerConfig {
-	return defaultConfigs()["Server_main"]
-}
-
-func DefaultConfigServerAdd() ContainerConfig {
-	return defaultConfigs()["Server_add"]
-}
-
-func DefaultConfigLB() ContainerConfig {
-	return defaultConfigs()["LB"]
-}
-
-// DefaultConfigs returns default configurations for all container types.
-func defaultConfigs() map[string]ContainerConfig {
-	return make(map[string]ContainerConfig)
-}
-
-var postgresConfig = ContainerConfig{
+var PostgresConfig = ContainerConfig{
 		LoadLevel:        2,
 		IsDefault:        true,
 		ContainerService: "DB",
@@ -58,7 +33,7 @@ var postgresConfig = ContainerConfig{
 		},
 	}
 
-	var mongoConfig = ContainerConfig{
+	var MongoConfig = ContainerConfig{
 			LoadLevel:        2,
 			IsDefault:        true,
 			ContainerService: "DB",
@@ -86,7 +61,7 @@ var postgresConfig = ContainerConfig{
 
 	
 	// Default Redis configuration
-var	redisConfig = ContainerConfig{
+var	RedisConfig = ContainerConfig{
 		LoadLevel:        1,
 		IsDefault:        true,
 		ContainerService: "Cache",
@@ -110,7 +85,7 @@ var	redisConfig = ContainerConfig{
 	}
 
 		// Default Nginx load balancer configuration
-		var nginxConfig = ContainerConfig{
+		var NginxConfig = ContainerConfig{
 			LoadLevel:        1,
 			IsDefault:        true,
 			ContainerService: "LB",
@@ -134,7 +109,7 @@ var	redisConfig = ContainerConfig{
 		}
 
 		// Default HAProxy load balancer configuration
-		var haproxyConfig = ContainerConfig{
+		var HaproxyConfig = ContainerConfig{
 			LoadLevel:        1,
 			IsDefault:        true,
 			ContainerService: "LB",
@@ -159,7 +134,7 @@ var	redisConfig = ContainerConfig{
 
 
 		
-		var voipConfig1 = ContainerConfig{
+		var VoipConfig1 = ContainerConfig{
 				LoadLevel:        2,
 				IsDefault:        true,
 				ContainerService: "Server_main",
@@ -185,7 +160,7 @@ var	redisConfig = ContainerConfig{
 				},
 			}
 
-			var voipConfig2 = ContainerConfig{
+			var VoipConfig2 = ContainerConfig{
 				LoadLevel:        1,
 				IsDefault:        true,
 				ContainerService: "Server_main",
@@ -211,7 +186,7 @@ var	redisConfig = ContainerConfig{
 			}
 
 			// API Gateway configuration
-			var apiGatewayConfig = ContainerConfig{
+			var ApiGatewayConfig = ContainerConfig{
 				LoadLevel:        2,
 				IsDefault:        true,
 				ContainerService: "Server_add",
@@ -238,7 +213,7 @@ var	redisConfig = ContainerConfig{
 			}
 
 			// Monitoring Service configuration
-		var	monitoringConfig = ContainerConfig{
+		var	MonitoringConfig = ContainerConfig{
 				LoadLevel:        1,
 				IsDefault:        true,
 				ContainerService: "Other",
@@ -318,6 +293,7 @@ func randString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	b := make([]byte, n)
 	_, err := rand.Read(b)
+	
 	if err != nil {
 		panic(err)
 	}

@@ -8,6 +8,8 @@ import (
 	"github.com/docker/docker/api/types/network"
 )
 
+var _ ContainerConfiguration = &containerEntity{}
+
 type ContainerStatus string
 
 func ContainerStatusFailed() ContainerStatus  { return "failed" }
@@ -15,27 +17,43 @@ func ContainerStatusCreated() ContainerStatus { return "created" }
 func ContainerStatusRunning() ContainerStatus { return "running" }
 func ContainerStatusStopped() ContainerStatus { return "stopped" }
 
-// Container is a representation of running docker container (service.Service + Docker API)
-type Container struct {
-	ID              string
-	Service 				string
-	Status          ContainerStatus
 
-	ContainerConfig *config.ContainerConfig
-	Config          *container.Config
+type ContainerConfiguration interface {
+	// in app config
+	GetContainerConfig() config.ContainerConfiguration
+
+	// docker internal config
+	GetNetworkConfig() *network.NetworkingConfig
+	GetHostConfig() *container.HostConfig
+	GetConfig() *container.Config
+  GetHealthCheckConfig() *container.HealthConfig 
 	
-	HostConfig      *container.HostConfig
-	NetworkConfig   *network.NetworkingConfig
-	HealthCheckConfig *container.HealthConfig
+	GetID() string
+  GetService() string
+}
+
+// Container is a representation of running docker container (service.Service + Docker API)
+type containerEntity struct {
+	id              string
+	service 				string
+	status          ContainerStatus
+
+	containerConfig config.ContainerConfiguration
+	
+	// docker internals 
+	config          *container.Config
+	hostConfig      *container.HostConfig
+	networkConfig   *network.NetworkingConfig
+	healthCheckConfig *container.HealthConfig
 
 	mu *sync.RWMutex
 }
 
-func NewContainer(conf *config.ContainerConfig) (*Container, error) {
+func NewContainer(conf config.ContainerConfiguration) (ContainerConfiguration, error) {
 
 	var res = container.Resources{}
 
-	switch conf.LoadLevel {
+	switch conf.GetLoadLevel() {
 		case 0: res = config.LowLoadConfig
 		case 1: res = config.MediumLoadConfig
 		case 2: res = config.HighLoadConfig
@@ -60,11 +78,11 @@ func NewContainer(conf *config.ContainerConfig) (*Container, error) {
 	}
 	
 	healthCheckConfig := &container.HealthConfig{
-			Test:        conf.GetHealthTest(),       // Health check command
-			Interval:    conf.GetHealthInterval(),   // Health check interval
-			Timeout:     conf.GetHealthTimeout(),    // Health check timeout
-			Retries:     conf.GetHealthRetries(),    // Number of retries before marking unhealthy
-			StartPeriod: conf.GetHealthStartPeriod(), // Initial delay before starting health checks
+			Test:        conf.GetHealthTest(),       
+			Interval:    conf.GetHealthInterval(),   
+			Timeout:     conf.GetHealthTimeout(),    
+			Retries:     conf.GetHealthRetries(),    
+			StartPeriod: conf.GetHealthStartPeriod(),
 	}
 	networkConfig := &network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
@@ -75,64 +93,74 @@ func NewContainer(conf *config.ContainerConfig) (*Container, error) {
 			},
 	}
 
-	return &Container{
-		ID:              "",
-		ContainerConfig: conf,
-		Config:          containerConfig,
-		HostConfig:      hostConfig,
-		NetworkConfig:   networkConfig,
-		HealthCheckConfig: healthCheckConfig,
-		Status:          ContainerStatusCreated(),
+	return &containerEntity{
+		id:              "",
+		containerConfig: conf,
+		config:          containerConfig,
+		hostConfig:      hostConfig,
+		networkConfig:   networkConfig,
+		healthCheckConfig: healthCheckConfig,
+		status:          ContainerStatusCreated(),
 		mu:              &sync.RWMutex{},
 	}, nil
 }
 
 //--------------------------------------
 
-func (c *Container) StatusStart() {
-	c.Status = ContainerStatusRunning()
+func (c *containerEntity) StatusStart() {
+ 	c.mu.Lock()
+  defer c.mu.Unlock()
+	c.status = ContainerStatusRunning()
 }
 
-func (c *Container) StatusStop() {
-	c.Status = ContainerStatusStopped()
+func (c *containerEntity) StatusStop() {
+ 	c.mu.Lock()
+  defer c.mu.Unlock()
+	c.status = ContainerStatusStopped()
 }
 
-func (c *Container) GetID() string {
+func (c *containerEntity) GetID() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.ID
+	return c.id
 }
 
-func (c *Container) GetService() string {
+func (c *containerEntity) GetService() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.Service
+	return c.service
 }
 
 //--------------------------------------
 
-func (c *Container) GetContainerConfig() *config.ContainerConfig {
+func (c *containerEntity) GetHealthCheckConfig() *container.HealthConfig {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.ContainerConfig
+	return c.healthCheckConfig
 }
 
-func (c *Container) GetConfig() *container.Config {
+func (c *containerEntity) GetContainerConfig() config.ContainerConfiguration {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.Config
+	return c.containerConfig
 }
 
-func (c *Container) GetHostConfig() *container.HostConfig {
+func (c *containerEntity) GetConfig() *container.Config {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.HostConfig
+	return c.config
 }
 
-func (c *Container) GetNetworkConfig() *network.NetworkingConfig {
+func (c *containerEntity) GetHostConfig() *container.HostConfig {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.NetworkConfig
+	return c.hostConfig
+}
+
+func (c *containerEntity) GetNetworkConfig() *network.NetworkingConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.networkConfig
 }
 
 //--------------------------------------

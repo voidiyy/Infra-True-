@@ -7,27 +7,28 @@ import (
 	"os"
 	"path/filepath"
 
+	"sync"
 	"gopkg.in/yaml.v3"
 )
 
 type UltimateConfig struct {
-	Containers map[string][]*ContainerConfig
+	Containers map[string]ContainerConfiguration
+	
+	mu *sync.RWMutex
 }
 
-func (c *UltimateConfig) GetContainers() map[string][]*ContainerConfig {
-	return c.Containers
-}
-
-func (c *UltimateConfig) GetContainerType(containerType string) []*ContainerConfig {
+func (c *UltimateConfig) GetContainerType(containerType string) ContainerConfiguration {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.Containers[containerType]
 }
 
 func NewContainersConfig(configs ...ContainerConfig) (*UltimateConfig, error) {
 	ult := &UltimateConfig{
-		Containers: make(map[string][]*ContainerConfig, len(configs)),
+		Containers: make(map[string]ContainerConfiguration, len(configs)),
 	}
 	for _, config := range configs {
-				ult.Containers[config.ContainerService] = append(ult.Containers[config.ContainerService], &config)
+				ult.Containers[config.ContainerService] = &config
 	}
 
 	log.Printf("loaded %v configs\n", len(ult.Containers))
@@ -35,8 +36,9 @@ func NewContainersConfig(configs ...ContainerConfig) (*UltimateConfig, error) {
 }
 
 func LoadContainersConfig(path string) (*UltimateConfig, error) {
-	conf := make([]*ContainerConfig, 0)
 
+	conf := make([]*ContainerConfig, 0)
+	
 	if path == "" {
 		return nil, fmt.Errorf("config file path is empty")
 	}
@@ -63,10 +65,9 @@ func LoadContainersConfig(path string) (*UltimateConfig, error) {
 		return nil, fmt.Errorf("unsupported config file extension: %s", ext)
 	}
 
-	ulti := make(map[string][]*ContainerConfig, len(conf))
+	ulti := make(map[string]ContainerConfiguration, 0)
 	for _, c := range conf {
-	
-		ulti[c.ContainerService] = append(ulti[c.ContainerService], c)
+		ulti[c.ContainerService] = c
 	}
 
 	log.Printf("loaded %v configs\n", len(ulti))
